@@ -10,6 +10,13 @@ class NearEarthObject(object):
         :param kwargs:    dict of attributes about a given Near Earth Object, only a subset of attributes used
         """
         # TODO: What instance variables will be useful for storing on the Near Earth Object?
+        self.orbit_info = kwargs
+        self.id = kwargs['id']
+        self.name = kwargs['name']
+        self.diameter_min_km = kwargs['estimated_diameter_min_kilometers']
+        self.is_potentially_hazardous_asteroid = kwargs['is_potentially_hazardous_asteroid']
+        self.close_approach_date = kwargs['close_approach_date']
+        self.miss_distance_kilometers = kwargs['miss_distance_kilometers']
 
     def update_orbits(self, orbit):
         """
@@ -20,6 +27,7 @@ class NearEarthObject(object):
         """
 
         # TODO: How do we connect orbits back to the Near Earth Object?
+        self.orbits = OrbitPath(**self.orbit_info)
 
 
 class OrbitPath(object):
@@ -34,3 +42,7 @@ class OrbitPath(object):
         :param kwargs:    dict of attributes about a given orbit, only a subset of attributes used
         """
         # TODO: What instance variables will be useful for storing on the Near Earth Object?
+        self.orbitpath_data = kwargs
+        self.neo_name = kwargs['name']
+        self.close_approach_date = kwargs['close_approach_date']
+        self.miss_distance_kilometers = kwargs['miss_distance_kilometers']
