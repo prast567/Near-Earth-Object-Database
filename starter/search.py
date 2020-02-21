@@ -1,7 +1,8 @@
-from collections import namedtuple
+from collections import namedtuple,defaultdict
 from enum import Enum
-
+import re
 from exceptions import UnsupportedFeature
+from logger import logger
 from models import NearEarthObject, OrbitPath
 
 
@@ -26,7 +27,8 @@ class Query(object):
     to structure the query information into a format the NEOSearcher can use for date search.
     """
 
-    Selectors = namedtuple('Selectors', ['date_search', 'number', 'filters', 'return_object'])
+    Selectors = namedtuple('Selectors', ['date_search', 'number', 'filters', 'return_object', \
+                                         'start_date', 'end_date'])
     DateSearch = namedtuple('DateSearch', ['type', 'values'])
     ReturnObjects = {'NEO': NearEarthObject, 'Path': OrbitPath}
 
@@ -35,6 +37,24 @@ class Query(object):
         :param kwargs: dict of search query parameters to determine which SearchOperation query to use
         """
         # TODO: What instance variables will be useful for storing on the Query object?
+        self.return_object = None
+        self.date = None
+        self.start_date = None
+        self.end_date = None
+        self.number = None
+        self.filters = None
+        if 'return_object' in kwargs.keys():
+            self.return_object = kwargs['return_object']
+        if 'date' in kwargs.keys():
+            self.date = kwargs['date']
+        if 'start_date' in kwargs.keys():
+            self.start_date = kwargs['start_date']
+        if 'end_date' in kwargs.keys():
+            self.end_date = kwargs['end_date']
+        if 'number' in kwargs.keys():
+            self.number = kwargs['number']
+        if 'filter' in kwargs.keys():
+            self.filters = kwargs['filter']
 
     def build_query(self):
         """
@@ -45,6 +65,9 @@ class Query(object):
         """
 
         # TODO: Translate the query parameters into a QueryBuild.Selectors object
+        selector = Query.Selectors(self.date, self.number, self.filters, self.return_object, \
+                                   self.start_date, self.end_date)
+        return selector
 
 
 class Filter(object):
@@ -54,6 +77,10 @@ class Filter(object):
     """
     Options = {
         # TODO: Create a dict of filter name to the NearEarthObject or OrbitalPath property
+        # 'diameter': NearEarthObject.diameter_min_km,
+        # 'distance': NearEarthObject.miss_distance_kilometers,
+        # 'is_hazardous': NearEarthObject.is_potentially_hazardous_asteroid
+
     }
 
     Operators = {
@@ -82,6 +109,9 @@ class Filter(object):
         """
 
         # TODO: return a defaultdict of filters with key of NearEarthObject or OrbitPath and value of empty list or list of Filters
+        filter_dict = defaultdict()
+        filter_dict[filter_options[filter_options.pop()]] = filter_options
+        return filter_dict
 
     def apply(self, results):
         """
@@ -91,6 +121,70 @@ class Filter(object):
         :return: filtered list of Near Earth Object results
         """
         # TODO: Takes a list of NearEarthObjects and applies the value of its filter operation to the results
+        neo_container = []
+
+        if self.field.lower() == 'diameter':
+            logger.info("Filtering neo based on diameter")
+            if self.operation == '>=':
+                for item in results:
+                    if item.diameter_min_km >= float(self.value):
+                        neo_container.append(item)
+            elif self.operation == '>':
+                for item in results:
+                    if item.diameter_min_km > float(self.value):
+                        neo_container.append(item)
+
+            elif self.operation == '<=':
+                for item in results:
+                    if item.diameter_min_km <= float(self.value):
+                        neo_container.append(item)
+            elif self.operation == '<':
+                for item in results:
+                    if item.diameter_min_km < float(self.value):
+                        neo_container.append(item)
+            else:
+                for item in results:
+                    if item.diameter_min_km == float(self.value):
+                        neo_container.append(item)
+            logger.info(f"Neo Filtered based on diameter {[item.name for item in neo_container]}")
+
+        elif self.field.lower() == 'distance':
+            logger.info("Filtering neo based on distance")
+            if self.operation == '>=':
+                for item in results:
+                    if item.miss_distance_kilometers >= float(self.value):
+                        neo_container.append(item)
+            elif self.operation == '>':
+                for item in results:
+                    if item.miss_distance_kilometers > float(self.value):
+                        neo_container.append(item)
+            elif self.operation == '<=':
+                for item in results:
+                    if item.miss_distance_kilometers <= float(self.value):
+                        neo_container.append(item)
+            elif self.operation == '<':
+                for item in results:
+                    if item.miss_distance_kilometers < float(self.value):
+                        neo_container.append(item)
+            else:
+                for item in results:
+                    if item.miss_distance_kilometers == float(self.value):
+                        neo_container.append(item)
+            logger.info(f"Neo Filtered based on distance {[item.name for item in neo_container]}")
+
+        elif self.field.lower() == 'is_hazardous':
+            logger.info("Filtering neo based on is_hazardous")
+            if self.value.lower() == 'false':
+                for item in results:
+                    if item.is_potentially_hazardous_asteroid == False:
+                        neo_container.append(item)
+            else:
+                for item in results:
+                    if item.is_potentially_hazardous_asteroid == True:
+                        neo_container.append(item)
+            logger.info(f"Neo Filtered based on is_hazardous {[item.name for item in neo_container]}")
+
+        return neo_container
 
 
 class NEOSearcher(object):
@@ -106,6 +200,8 @@ class NEOSearcher(object):
         """
         self.db = db
         # TODO: What kind of an instance variable can we use to connect DateSearch to how we do search?
+        self.orbit_dict = db.orbit_dict
+        self.neo_earth_dict = db.neo_earth_dict
 
     def get_objects(self, query):
         """
@@ -122,3 +218,47 @@ class NEOSearcher(object):
         # TODO: Write instance methods that get_objects can use to implement the two types of DateSearch your project
         # TODO: needs to support that then your filters can be applied to. Remember to return the number specified in
         # TODO: the Query.Selectors as well as in the return_type from Query.Selectors
+        try:
+            logger.info("Starting a new search")
+            neo_container = []
+            if query.date_search!=None:
+                logger.info("Filtering neo based on date")
+                if query.date_search in self.orbit_dict.keys():
+                    neo_container.extend(self.orbit_dict[query.date_search])
+                    logger.info(f"Neo filtered based on date are {[item.name for item in neo_container]}")
+
+            elif (query.start_date !=None and query.end_date == None) or \
+                (query.start_date == None and query.end_date != None):
+                pass
+            elif (query.start_date !=None and query.end_date != None):
+                logger.info("Filtering neo based on start_date and end date")
+                for neo in self.orbit_dict.keys():
+                    if neo >= query.start_date and neo<= query.end_date:
+                         neo_container.extend(self.orbit_dict[neo])
+                logger.info(f"Neo filtered based on date are {[item.name for item in neo_container]}")
+
+            object = neo_container
+            if query.filters != None:
+                for item in query.filters:
+                    filter = re.findall(r'(.*):(.*):(.*)', item)
+                    field = filter[0][0]
+                    operation = filter[0][1]
+                    value = filter[0][2]
+                    filter_obj = Filter(field, object, operation, value)
+                    object = filter_obj.apply(object)
+
+            final_obj = []
+
+            if query.number == None:
+                return object
+            else:
+                logger.info("Filtering neo based on number")
+                if len(object) > query.number:
+                    for item in range(query.number):
+                        final_obj.append(object[item])
+                    logger.info(f"Filtered neo based on number are {[item.name for item in final_obj]}")
+                    return final_obj
+                logger.info(f"Filtered neo based on number are {[item.name for item in object]}")
+                return object
+        finally:
+            logger.info("Search ended!!!")
