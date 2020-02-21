@@ -33,7 +33,7 @@ class TestNEOSearchUseCases(unittest.TestCase):
         self.neo_data_file = f'{PROJECT_ROOT}/data/neo_data.csv'
 
         self.db = NEODatabase(filename=self.neo_data_file)
-        self.db.load_data()
+        #self.db.load_data()
 
         self.start_date = '2020-01-01'
         self.end_date = '2020-01-10'
@@ -155,7 +155,7 @@ class TestNEOSearchUseCases(unittest.TestCase):
         # Filter to NEO Orbit Paths with Matching Distance
         all_orbits = []
         for neo in neo_ids:
-            all_orbits += neo.orbits
+            all_orbits.append(neo.orbits)
         unique_orbits = set()
         filtered_orbits = []
         for orbit in all_orbits:
